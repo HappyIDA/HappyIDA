@@ -7,6 +7,7 @@ import ida_kernwin
 import ida_lines
 import ida_segment
 import ida_bytes
+from HappyIDA.undoutils import undoable, HandleStatus
 
 from PyQt5.QtWidgets import QApplication
 
@@ -43,10 +44,11 @@ class HexraysDoubleClickHook(ida_hexrays.Hexrays_Hooks):
 
         return 0
 
-    def double_click_to_rename(self, vdui):
+    @undoable
+    def double_click_to_rename(self, vdui) -> HandleStatus:
         item = vdui.item
         if not item.is_citem():
-            return 0
+            return HandleStatus.NOT_HANDLED
 
         # both "arg: var" are mapped to a citem_t node (the argument, not necessary a cot_var)
         if item.it.op != idaapi.cot_var:
@@ -55,7 +57,7 @@ class HexraysDoubleClickHook(ida_hexrays.Hexrays_Hooks):
         # ensure user double clicked on the function argument
         pit = vdui.cfunc.body.find_parent_of(item.it)
         if not pit.is_expr() or pit.op != ida_hexrays.cot_call:
-            return 0
+            return HandleStatus.NOT_HANDLED
 
         fcall = pit.cexpr
         argidx = 0
@@ -66,73 +68,75 @@ class HexraysDoubleClickHook(ida_hexrays.Hexrays_Hooks):
                 break
         else:
             error('Unable to find the selected ctree node')
-            return 0
+            return HandleStatus.FAILED
 
         func_ea = fcall.x.obj_ea
         tif = ida_typeinf.tinfo_t()
         if not idaapi.get_tinfo(tif, func_ea):
             error(f'Failed to retrieve the real function type for {hex(func_ea)}')
-            return 0
+            return HandleStatus.FAILED
 
         func_data = ida_typeinf.func_type_data_t()
         if not tif.get_func_details(func_data):
             error('Failed to retrieve function details.')
-            return 0
+            return HandleStatus.FAILED
 
         lvar = item.e.v.getv()
         sel_name, success = ida_kernwin.get_highlight(vdui.ct)
         if not success:
             error('Failed to retrieve highlighted variable name')
-            return 0
+            return HandleStatus.FAILED
 
         # for unk case, we want to set the variable name to function argument
         if func_data[argidx].name == '' or lvar.name == sel_name:
+            # if arg and var name already the same
             if func_data[argidx].name == lvar.name:
-                return 0
+                return HandleStatus.NOT_HANDLED
 
             func_data[argidx].name = lvar.name
 
             # Recreate the function type with the modified argument names
             if not tif.create_func(func_data):
                 error('Failed to create the modified function type.')
-                return 0
+                return HandleStatus.FAILED
 
             # Apply the modified type back to the function
             if not ida_typeinf.apply_tinfo(func_ea, tif, idaapi.TINFO_DEFINITE):
                 error(f'Failed to apply the modified function type to {hex(func_ea)}.')
-                return 0
+                return HandleStatus.FAILED
         else:
             if not vdui.rename_lvar(lvar, func_data[argidx].name, True):
                 error(f'Failed to rename variable to "{func_data[argidx].name}"')
-                return 0
+                return HandleStatus.FAILED
 
         # not working
         # vdui.refresh_ctext()
         # idaapi.refresh_idaview_anyway()
         # ida_hexrays.mark_cfunc_dirty(func_ea)
         vdui.refresh_view(False)
-        return 1
+        return HandleStatus.HANDLED
 
-    def double_click_to_retype(self, vdui):
+    @undoable
+    def double_click_to_retype(self, vdui) -> HandleStatus:
         item = vdui.item
         if not item.is_citem():
-            return 0
+            return HandleStatus.NOT_HANDLED
 
         e = item.e
 
         # sanity check
         if e.op != ida_hexrays.cot_cast:
-            return 0
+            return HandleStatus.NOT_HANDLED
 
         # check if cursor located inside type cast expr
         sel_name, success = ida_kernwin.get_highlight(vdui.ct)
         if not success:
             error('Failed to retrieve highlighted variable name')
-            return 0
+            return HandleStatus.FAILED
 
         # * will be dropped, so at least check the prefix
         if not str(e.type).startswith(sel_name):
-            return 0
+            return HandleStatus.NOT_HANDLED
 
         # CASE: (type)var
         if (e.op == ida_hexrays.cot_cast and
@@ -142,7 +146,7 @@ class HexraysDoubleClickHook(ida_hexrays.Hexrays_Hooks):
 
             self.retype_pseudocode_var(func.start_ea, lvar.name, e.type)
             vdui.refresh_view(True)
-            return 1
+            return HandleStatus.HANDLED
 
         # CASE: (type *)&var->field[const idx]
         # TODO: support *(int *)&this[4].gap4[12] = 1
@@ -161,7 +165,7 @@ class HexraysDoubleClickHook(ida_hexrays.Hexrays_Hooks):
             udm = self.get_member(tif, e.x.x.x.m)
             if not udm:
                 error(f'Unable to get member of offset {e.x.x.x.m}')
-                return 0
+                return HandleStatus.FAILED
 
             arr_idx = e.x.x.y.n._value
             from_offset = to_byte(udm.offset) + udm.type.get_ptrarr_objsize() * arr_idx
@@ -182,7 +186,7 @@ class HexraysDoubleClickHook(ida_hexrays.Hexrays_Hooks):
                 ret = idc.add_struc_member(tif.get_tid(), udm.name, to_byte(udm.offset), 0, -1, arr_tif.get_size())
                 if ret:
                     error('Failed to crop array')
-                    return 0
+                    return HandleStatus.FAILED
 
             # sequentially delete all structures preceding the to_offset
             udmidx = tif.find_udm(udm, ida_typeinf.STRMEM_NEXT)
@@ -199,27 +203,27 @@ class HexraysDoubleClickHook(ida_hexrays.Hexrays_Hooks):
                 idc.del_struc_member(tif.get_tid(), to_byte(udm.offset))
             else:
                 error('Retype conflicted with other structure')
-                return 0
+                return HandleStatus.FAILED
 
             # ida is smart enough to let us add into any offset we want without alignment (will auto set aligned(1))
             # we can only add into the free padding space
             newname = ida_kernwin.ask_str('', ida_kernwin.HIST_IDENT, 'Please enter the field name')
             if not newname:
                 error('Failed to receive the new structure field name')
-                return 0
+                return HandleStatus.FAILED
 
             # TODO: we should handle the case where the cast type is not a structure: `*(_DWORD *)&this->gap10[8]`
             ret = idc.add_struc_member(tif.get_tid(), newname, from_offset, idaapi.FF_STRUCT, cast_type.get_tid(), cast_type.get_size())
             if ret:
                 error('Failed to add new structure field')
-                return 0
+                return HandleStatus.FAILED
 
             info('Retyping successfully')
             vdui.refresh_view(False)
 
-            return 1
+            return HandleStatus.HANDLED
 
-        return 0
+        return HandleStatus.NOT_HANDLED
 
     def retype_pseudocode_var(self, func_ea, varname, tinfo):
         # Rename variable to make it into user modified list
