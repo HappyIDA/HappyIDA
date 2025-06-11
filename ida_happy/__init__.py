@@ -361,7 +361,10 @@ class HexraysDoubleClickHook(ida_hexrays.Hexrays_Hooks):
             vdui.refresh_view(False)
 
             return HandleStatus.HANDLED
+        
+        return HandleStatus.NOT_HANDLED
 
+    @undoable
     def double_click_to_navigate(self, vdui) -> HandleStatus:
         
         if not vdui.get_current_item(ida_hexrays.USE_MOUSE) or not vdui.in_ctree():
@@ -394,8 +397,8 @@ class HexraysDoubleClickHook(ida_hexrays.Hexrays_Hooks):
                             info("Jump to '%s'" % sel_name)
                             return HandleStatus.HANDLED
                     else:
-                        info("No close matches for '%s'" % name)
-                    
+                        error("No close matches for '%s'" % name)
+                        return HandleStatus.FAILED
         return HandleStatus.NOT_HANDLED
 
     def retype_pseudocode_var(self, func_ea, varname, tinfo):
