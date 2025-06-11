@@ -47,7 +47,7 @@ class FuncChooser(idaapi.Choose):
     def __init__(self, title, cols, items):
         super(FuncChooser, self).__init__(title, cols, flags=idaapi.Choose.CH_MODAL)
         self.items = items
-        self.icon  = 5
+        self.icon  = 41
 
     def OnGetSize(self):
         return len(self.items)
