@@ -7,7 +7,7 @@ import ida_kernwin
 import ida_lines
 import ida_segment
 import ida_bytes
-from HappyIDA.undoutils import undoable, HandleStatus
+from .undoutils import undoable, HandleStatus
 
 from PyQt5.QtWidgets import QApplication
 
@@ -35,7 +35,7 @@ def parse_type(tif, typename):
     if ida_typeinf.parse_decl(tif, ida_typeinf.get_idati(), typename, ida_typeinf.PT_SIL) == None:
         error(f"Unable to parse declaration: {typename}")
         return False
-    
+
     return True
 
 def tag_text(text, tag):
@@ -795,7 +795,7 @@ class HexraysEditTypeAction(idaapi.action_handler_t):
         if not item.it.is_expr():
             error("No variable under cursor or not a valid lvar item.")
             return 0
-        
+
         tif = None
 
         if item.e.v is not None:
@@ -813,7 +813,7 @@ class HexraysEditTypeAction(idaapi.action_handler_t):
             if not new_tif.get_named_type(ida_typeinf.get_idati(), type_name):
                 if not parse_type(new_tif, type_name):
                     return 0
-            
+
             tif = new_tif
 
         self._edit_type(tif)
@@ -912,6 +912,3 @@ class HappyIDAPlugin(idaapi.plugin_t):
             idaapi.term_hexrays_plugin()
 
         info('Plugin terminated')
-
-def PLUGIN_ENTRY():
-    return HappyIDAPlugin()

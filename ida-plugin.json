@@ -2,7 +2,7 @@
   "IDAMetadataDescriptorVersion": 1,
   "plugin": {
     "name": "HappyIDA",
-    "entryPoint": "HappyIDA.py",
+    "entryPoint": "main.py",
     "categories": ["api-scripting-and-automation"],
     "logoPath": "logo.png",
     "idaVersions": ">=7.4",
