@@ -543,7 +543,8 @@ class HexraysPasteNameAction(idaapi.action_handler_t):
             if vdui.rename_lvar(lvar, new_name, True):
                 info(f"Renamed variable to '{new_name}'")
             else:
-                error(f"Failed to rename variable to '{new_name}'")
+                # handle the case if rename failed
+                info(f"Failed to rename variable to '{new_name}', rename it manually")
                 vdui.ui_rename_lvar(lvar)
 
         elif item.e.obj_ea != idaapi.BADADDR:
@@ -551,10 +552,12 @@ class HexraysPasteNameAction(idaapi.action_handler_t):
             info(f"Renamed name of {hex(item.e.obj_ea)} to '{new_name}'")
 
         elif item.it.op in [ida_hexrays.cot_memptr, ida_hexrays.cot_memref]:
-            self.rename_member(item, new_name)
+            if not self.rename_member(item, new_name):
+                return 0
 
         else:
             error("No variable under cursor or not a valid lvar item.")
+            return 0
 
         vdui.refresh_ctext()
 
@@ -565,11 +568,12 @@ class HexraysPasteNameAction(idaapi.action_handler_t):
         # Assuming item, udm_data, and parent_tinfo are defined
         index = item.get_udm(udm_data, parent_tinfo, None)
 
-        if index != -1:
-            # Print information
-           self.rename_member_name(parent_tinfo, udm_data.offset, new_name)
-        else:
+        if index == -1:
             error("Failed to get UDM information.")
+            return 0
+
+        # Print information
+        return self.rename_member_name(parent_tinfo, udm_data.offset, new_name)
 
     def rename_member_name(self, tinfo, offset, new_name):
         # Check if the type is a structure
@@ -588,8 +592,6 @@ class HexraysPasteNameAction(idaapi.action_handler_t):
         count = 0
         for member in struct_type_data:
             if member.offset == offset:
-                print(idc.get_member_name(tinfo.get_ordinal(), member.offset))
-                print(member.name, member.can_rename())
                 if member.can_rename():
                     member.name = new_name
                     if tinfo.rename_udm(count, new_name):
@@ -615,27 +617,37 @@ class HexraysCopyTypeAction(idaapi.action_handler_t):
     def copy_type(self, ctx):
         vdui = ida_hexrays.get_widget_vdui(ctx.widget)
         item = vdui.item
-        if item.is_citem() and item.it.is_expr():
-            if item.e.v is not None:
-                lvar = item.e.v.getv()
-                type_name = lvar.tif.dstr()
-                copy_to_clip(type_name)
-                print(f"{type_name} has been copied to clipboard")
-            elif item.it.op in [ida_hexrays.cot_memptr, ida_hexrays.cot_memref]:
-                udm_data = idaapi.udm_t()
-                parent_tinfo = idaapi.tinfo_t()
-                item.get_udm(udm_data, parent_tinfo, None)
-                type_name = udm_data.type.dstr()
-                copy_to_clip(type_name)
-                print(f"{type_name} has been copied to clipboard")
-            elif item.e.obj_ea != idaapi.BADADDR:
-                type_name = idc.get_type(item.e.obj_ea)
-                copy_to_clip(type_name)
-                print(f"{type_name} has been copied to clipboard")
-            else:
-                print("Nothing")
+        if not item.is_citem():
+            return 0
+
+        if not item.it.is_expr():
+            error("No variable under cursor or not a valid lvar item.")
+            return 0
+
+        if item.e.v is not None:
+            lvar = item.e.v.getv()
+            type_name = lvar.tif.dstr()
+            copy_to_clip(type_name)
+            info(f"{type_name} has been copied to clipboard")
+
+        elif item.it.op in [ida_hexrays.cot_memptr, ida_hexrays.cot_memref]:
+            udm_data = idaapi.udm_t()
+            parent_tinfo = idaapi.tinfo_t()
+            item.get_udm(udm_data, parent_tinfo, None)
+            type_name = udm_data.type.dstr()
+            copy_to_clip(type_name)
+            info(f"{type_name} has been copied to clipboard")
+
+        elif item.e.obj_ea != idaapi.BADADDR:
+            type_name = idc.get_type(item.e.obj_ea)
+            copy_to_clip(type_name)
+            info(f"{type_name} has been copied to clipboard")
+
         else:
-            print("No variable under cursor or not a valid lvar item.")
+            error("Nothing")
+            return 0
+
+        return 1
 
     def update(self, ctx):
         if ctx.widget_type == ida_kernwin.BWN_PSEUDOCODE:
@@ -651,63 +663,80 @@ class HexraysPasteTypeAction(idaapi.action_handler_t):
         vdui = ida_hexrays.get_widget_vdui(ctx.widget)
 
         item = vdui.item
-        if item.is_citem() and item.it.is_expr():
-            if item.e.v is not None:
-                lvar = item.e.v.getv()
-                self.assign_type_to_lvar(vdui, lvar)
+        if not item.is_citem():
+            return 0
 
-            elif item.e.obj_ea != idaapi.BADADDR:
-                type_name = get_clip_text()
-                idc.SetType(item.e.obj_ea, type_name + " ;")
-                print(f"{type_name} has been assigned to variable")
-                vdui.refresh_view(True)
+        if not item.it.is_expr():
+            error("No variable under cursor or not a valid lvar item.")
+            return 0
 
-            elif item.it.op in [ida_hexrays.cot_memptr, ida_hexrays.cot_memref]:
-                type_name = get_clip_text()
-                udm_data = idaapi.udm_t()
-                parent_tinfo = idaapi.tinfo_t()
-                item.get_udm(udm_data, parent_tinfo, None)
-                # Get the udm array
-                struct_type_data = idaapi.udt_type_data_t()
-                if not parent_tinfo.get_udt_details(struct_type_data):
-                    print("Failed to get UDT details")
-                    return None
-                # find the udm index in udm array
-                # TODO: item.get_udm actually return the index
-                index = 0
-                for member in struct_type_data:
-                    if member.offset == udm_data.offset:
-                        break
-                    index += 1
-                # Create new type
-                type_name = get_clip_text()
-                new_tif = idaapi.tinfo_t()
-                if not new_tif.get_named_type(ida_typeinf.get_idati(), type_name):
-                    ida_typeinf.parse_decl(new_tif, ida_typeinf.get_idati(), type_name + " ;",0)
-                parent_tinfo.set_udm_type(index, new_tif)
-                info(f"{type_name} has been assigned to variable")
-            else:
-                print("Nothing")
+        if item.e.v is not None:
+            lvar = item.e.v.getv()
+            if not self.assign_type_to_lvar(vdui, lvar):
+                return 0
+
+        elif item.e.obj_ea != idaapi.BADADDR:
+            type_name = get_clip_text()
+            if not idc.SetType(item.e.obj_ea, type_name + " ;"):
+                error("Failed to set type: {type_name};")
+                return 0
+
+            info(f"{type_name} has been assigned to variable")
+            vdui.refresh_view(True)
+
+        elif item.it.op in [ida_hexrays.cot_memptr, ida_hexrays.cot_memref]:
+            udm_data = idaapi.udm_t()
+            parent_tinfo = idaapi.tinfo_t()
+            item.get_udm(udm_data, parent_tinfo, None)
+
+            # Get the udm array
+            struct_type_data = idaapi.udt_type_data_t()
+            if not parent_tinfo.get_udt_details(struct_type_data):
+                error("Failed to get UDT details")
+                return 0
+
+            # find the udm index in udm array
+            # TODO: item.get_udm actually return the index
+            index = 0
+            for member in struct_type_data:
+                if member.offset == udm_data.offset:
+                    break
+                index += 1
+
+            # Create new type
+            type_name = get_clip_text()
+            new_tif = idaapi.tinfo_t()
+            if not new_tif.get_named_type(ida_typeinf.get_idati(), type_name):
+                if not ida_typeinf.parse_decl(new_tif, ida_typeinf.get_idati(), type_name + " ;",0):
+                    error(f"Unable to parse declaration: {type_name};")
+                    return 0
+
+            parent_tinfo.set_udm_type(index, new_tif)
+            info(f"{type_name} has been assigned to variable")
+
         else:
-            print("No variable under cursor or not a valid lvar item.")
+            error("Nothing")
+            return 0
 
         return 1
 
     def assign_type_to_lvar(self, vdui, lvar):
         new_tif = idaapi.tinfo_t()
         if not new_tif.get_named_type(ida_typeinf.get_idati(), get_clip_text()):
-            print(get_clip_text() + " ;")
-            print(ida_typeinf.parse_decl(new_tif, ida_typeinf.get_idati(), get_clip_text() + " ;",0))
-            print(new_tif)
+            if not ida_typeinf.parse_decl(new_tif, ida_typeinf.get_idati(), get_clip_text() + " ;",0):
+                error(f"Unable to parse declaration: {get_clip_text()};")
+                return False
 
         lsi = ida_hexrays.lvar_saved_info_t()
         lsi.ll = lvar
         lsi.type = new_tif
         if not ida_hexrays.modify_user_lvar_info(vdui.cfunc.entry_ea, ida_hexrays.MLI_TYPE, lsi):
-            print(f"Could not modify lvar type for {lvar.name}")
+            error(f"Could not modify lvar type for {lvar.name}")
             return False
-        print(f"{new_tif} has been assigned to variable")
+
+        info(f"{new_tif} has been assigned to variable")
         vdui.refresh_view(True)
+        return True
 
     def update(self, ctx):
         if ctx.widget_type == ida_kernwin.BWN_PSEUDOCODE:
@@ -728,7 +757,6 @@ class HexraysEditTypeAction(idaapi.action_handler_t):
                 self.ordinal = 0
 
             def activate(self, ctx):
-                print("do edit!")
                 ida_kernwin.open_loctypes_window(self.ordinal)
                 idautils.ProcessUiActions("TilEditType")
 
@@ -788,8 +816,6 @@ class HexraysEditTypeAction(idaapi.action_handler_t):
             idautils.ProcessUiActions("TilEditType")
             ```
             """
-            # global g_ordinal
-            # g_ordinal = ordinal
             self.handler.ordinal = ordinal
             idautils.ProcessUiActions(HexraysEditTypeAction.ACTION_DOEDIT)
 
