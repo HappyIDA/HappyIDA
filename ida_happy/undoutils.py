@@ -50,16 +50,13 @@ def undoable(func):
         idaapi.process_ui_action(desc.name)
         idaapi.unregister_action(desc.name)
 
-        match ah.result:
-            case HandleStatus.HANDLED:
-                return 1
-
-            case HandleStatus.NOT_HANDLED:
-                return 0
-
-            case HandleStatus.FAILED:
-                print(f'[-] Failed to run hook {func.__qualname__}(), undo all changes')
-                idaapi.process_ui_action('Undo')
-                return 1
+        if ah.result == HandleStatus.HANDLED:
+            return 1
+        elif ah.result == HandleStatus.NOT_HANDLED:
+            return 0
+        elif ah.result == HandleStatus.FAILED:
+            print(f'[-] Failed to run hook {func.__qualname__}(), undo all changes')
+            idaapi.process_ui_action('Undo')
+            return 1
 
     return wrapper
