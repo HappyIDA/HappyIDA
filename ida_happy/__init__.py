@@ -10,6 +10,7 @@ import ida_bytes
 import ida_tryblks
 import ida_range
 from .undoutils import undoable, HandleStatus
+from .modules import HexraysRebuildSEHHook
 
 from PyQt5.QtWidgets import QApplication
 
@@ -1091,7 +1092,8 @@ class HappyIDAPlugin(idaapi.plugin_t):
                 HexraysRustStringHook(),
                 HexraysDoubleClickHook(),
                 HexraysFuncLabelHook(),
-                HexraysMarkSEHHook()
+                HexraysMarkSEHHook(),
+                HexraysRebuildSEHHook()
             ]
             for hook in self.hx_hooks:
                 hook.hook()
