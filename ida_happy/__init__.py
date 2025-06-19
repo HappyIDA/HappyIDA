@@ -345,7 +345,7 @@ class HexraysDoubleClickHook(ida_hexrays.Hexrays_Hooks):
 
         # both "arg: var" are mapped to a citem_t node (the argument, not necessary a cot_var)
         if item.it.op != idaapi.cot_var:
-            return 0
+            return HandleStatus.NOT_HANDLED
 
         # ensure user double clicked on the function argument
         pit = vdui.cfunc.body.find_parent_of(item.it)
