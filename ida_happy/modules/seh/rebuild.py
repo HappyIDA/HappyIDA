@@ -4,6 +4,7 @@ import ida_tryblks
 import ida_range
 
 class HexraysRebuildSEHHook(ida_hexrays.Hexrays_Hooks):
+    """rebuild the missing SEH try except statements"""
     def __init__(self):
         super().__init__()
         self.seh_list = []
@@ -184,17 +185,7 @@ class HexraysRebuildSEHHook(ida_hexrays.Hexrays_Hooks):
             cur_insn.swap(insn)
             cur_insn.ea = eh_start
 
-            # record the iterator of the catch block in its parent block
-            pi = body.find_parent_of(it).cinsn
-            assert(pi.op == ida_hexrays.cit_block)
-            blk_iter = pi.cblock.begin()
-            while blk_iter != pi.cblock.end():
-                if blk_iter.cur == cur_insn:
-                    insn_map[try_start] = (pi, blk_iter)
-                    break
-                next(blk_iter)
-            else:
-                raise Exception('Failed to get previous block iterator')
+            insn_map[try_start] = cur_insn
 
         # the second search will yield the actual try blocks,
         # since we just delete the preceding if statement
@@ -244,12 +235,19 @@ class HexraysRebuildSEHHook(ida_hexrays.Hexrays_Hooks):
                 it = pi.cblock.insert(it, try_insn)
 
                 # move catch block below the try block (swap it out first)
-                # be caution: cpi could equal to pi
-                cpi, cit = insn_map[try_start]
+                catch_insn = insn_map[try_start]
+                cpi = body.find_parent_of(catch_insn).cinsn
+                assert(cpi.op == ida_hexrays.cit_block)
+                blk_iter = cpi.cblock.begin()
+                while blk_iter != cpi.cblock.end():
+                    if blk_iter.cur == catch_insn:
+                        break
+                    next(blk_iter)
+                else:
+                    raise Exception('Failed to get previous block iterator')
                 catch_insn = ida_hexrays.cinsn_t()
-                catch_insn.swap(cit.cur)
-                # TODO: fix this, cpi.cblock could be None
-                cpi.cblock.erase(cit)
+                catch_insn.swap(blk_iter.cur)
+                cpi.cblock.erase(blk_iter)
 
                 next(it)
                 pi.cblock.insert(it, catch_insn)
