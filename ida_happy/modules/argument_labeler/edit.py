@@ -3,7 +3,7 @@ import ida_hexrays
 import ida_typeinf
 import ida_kernwin
 from ida_happy.undoutils import undoable, HandleStatus
-from ida_happy.miscutils import error, parse_type
+from ida_happy.miscutils import info, error, parse_type
 
 class HexraysLabelEditHook(ida_hexrays.Hexrays_Hooks):
     """retype or rename function parameter label"""
@@ -63,32 +63,55 @@ class HexraysLabelEditHook(ida_hexrays.Hexrays_Hooks):
             error('Unable to find the selected ctree node')
             return HandleStatus.NOT_HANDLED
 
-        # NOTE: when working with large IDBs,
-        # we often can't get type information without decompiling functions first.
         func_ea = fcall.x.obj_ea
-        func = idaapi.get_func(func_ea)
-        ida_hexrays.decompile_func(func)
 
-        tif = ida_typeinf.tinfo_t()
-        if not idaapi.get_tinfo(tif, func_ea):
-            error(f'Failed to retrieve the real function type for {hex(func_ea)}')
-            return HandleStatus.NOT_HANDLED
+        # function pointer call (not IAT functions)
+        if func_ea == idaapi.BADADDR:
+            if fcall.x.op != idaapi.cot_var:
+                error('Unexpected function call')
+                return HandleStatus.FAILED
+
+            tif = fcall.x.v.getv().tif
+        else:
+            # NOTE: when working with large IDBs,
+            # we often can't get type information without decompiling functions first.
+            func = idaapi.get_func(func_ea)
+            ida_hexrays.decompile_func(func)
+
+            tif = ida_typeinf.tinfo_t()
+            if not idaapi.get_tinfo(tif, func_ea):
+                error(f'Failed to retrieve the function type for {hex(func_ea)}')
+                return HandleStatus.NOT_HANDLED
+
+        # handle function pointer (IAT function call)
+        if tif.is_funcptr():
+            pi = ida_typeinf.ptr_type_data_t()
+            if not tif.get_ptr_details(pi):
+                error(f'Failed to retrieve the function pointer type for {hex(func_ea)}')
+                return HandleStatus.NOT_HANDLED
+            tif = pi.obj_type
 
         func_data = ida_typeinf.func_type_data_t()
         if not tif.get_func_details(func_data):
             error('Failed to retrieve function details.')
             return HandleStatus.NOT_HANDLED
 
-        sel_name, success = ida_kernwin.get_highlight(vdui.ct)
-        if not success:
+        ret = ida_kernwin.get_highlight(vdui.ct)
+        if not ret:
             error('Failed to retrieve highlighted variable name')
             return HandleStatus.NOT_HANDLED
+
+        sel_name = ret[0]
 
         # drop any non-argument named variables
         # A: ...[B]...
         if func_data[argidx].name != sel_name and \
-        not (func_data[argidx].name == '' and sel_name == 'unk'):
+           not (func_data[argidx].name == '' and sel_name == 'unk'):
             return HandleStatus.NOT_HANDLED
+
+        if func_ea == idaapi.BADADDR:
+            info('Function pointer calls are not supported yet')
+            return HandleStatus.HANDLED
 
         # TODO: we somehow cannot handle A: B->[A] since we mapped both variable to the same item
         # should we untag it if they're the same?
@@ -116,6 +139,7 @@ class HexraysLabelEditHook(ida_hexrays.Hexrays_Hooks):
             return HandleStatus.FAILED
 
         # Apply the modified type back to the function
+        # NOTE: function pointer in IAT will be directly set type as a function
         if not ida_typeinf.apply_tinfo(func_ea, tif, idaapi.TINFO_DEFINITE):
             error(f'Failed to apply the modified function type to {hex(func_ea)}.')
             return HandleStatus.FAILED
