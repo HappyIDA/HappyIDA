@@ -218,15 +218,20 @@ class HexraysRebuildSEHHook(ida_hexrays.Hexrays_Hooks):
                 # into:   if (...) { CATCH...; goto L1; } else { TRY...; OTHERS; } L1: ...
                 if not all(try_start <= ins.ea < try_end for ins in else_block):
                     it = cur_insn
+                    insert_continue = False
 
                     while True:
                         next_iter, is_end = next_insn_iter(body, it)
                         if not is_end:
-                            insert_continue = False
                             break
 
                         it = body.find_parent_of(it).cinsn # cblock
-                        it = body.find_parent_of(it).cinsn # cif, cfor, cwhile, cdo, cswitch
+                        it = body.find_parent_of(it)
+                        # if we traversed to the outermost cblock
+                        if it == None:
+                            break
+
+                        it = it.cinsn # cif, cfor, cwhile, cdo, cswitch
                         if it.op == ida_hexrays.cit_if:
                             continue
 
@@ -241,7 +246,11 @@ class HexraysRebuildSEHHook(ida_hexrays.Hexrays_Hooks):
                         error(f'Cannot handle try block @ {hex(try_start)}')
                         return False
 
-                    if insert_continue:
+                    if it == None:
+                        # no need to fix anything, the else block definitely ends in return/goto
+                        pass
+
+                    elif insert_continue:
                         # build a continue insn to correct the semantics
                         catch_block = cif.ithen.cblock
                         last_insn = catch_block.back()
