@@ -46,7 +46,7 @@ class HexraysLabelNameSyncHook(ida_hexrays.Hexrays_Hooks):
         if func_ea == idaapi.BADADDR:
             if fcall.x.op != idaapi.cot_var:
                 error('Unexpected function call')
-                return HandleStatus.FAILED
+                return HandleStatus.HANDLED
 
             tif = fcall.x.v.getv().tif
         else:
@@ -58,26 +58,26 @@ class HexraysLabelNameSyncHook(ida_hexrays.Hexrays_Hooks):
             tif = ida_typeinf.tinfo_t()
             if not idaapi.get_tinfo(tif, func_ea):
                 error(f'Failed to retrieve the function type for {hex(func_ea)}')
-                return HandleStatus.FAILED
+                return HandleStatus.HANDLED
 
         # handle function pointer (IAT function call)
         if tif.is_funcptr():
             pi = ida_typeinf.ptr_type_data_t()
             if not tif.get_ptr_details(pi):
                 error(f'Failed to retrieve the function pointer type for {hex(func_ea)}')
-                return HandleStatus.FAILED
+                return HandleStatus.HANDLED
             tif = pi.obj_type
 
         func_data = ida_typeinf.func_type_data_t()
         if not tif.get_func_details(func_data):
             error('Failed to retrieve function details.')
-            return HandleStatus.FAILED
+            return HandleStatus.HANDLED
 
         lvar = item.e.v.getv()
         sel_name, success = ida_kernwin.get_highlight(vdui.ct)
         if not success:
             error('Failed to retrieve highlighted variable name')
-            return HandleStatus.FAILED
+            return HandleStatus.HANDLED
 
         # for unk case, we want to set the variable name to function argument
         if func_data[argidx].name == '' or lvar.name == sel_name:
@@ -90,16 +90,16 @@ class HexraysLabelNameSyncHook(ida_hexrays.Hexrays_Hooks):
             # Recreate the function type with the modified argument names
             if not tif.create_func(func_data):
                 error('Failed to create the modified function type.')
-                return HandleStatus.FAILED
+                return HandleStatus.HANDLED
 
             # Apply the modified type back to the function
             if not ida_typeinf.apply_tinfo(func_ea, tif, idaapi.TINFO_DEFINITE):
                 error(f'Failed to apply the modified function type to {hex(func_ea)}.')
-                return HandleStatus.FAILED
+                return HandleStatus.HANDLED
         else:
             if not vdui.rename_lvar(lvar, func_data[argidx].name, True):
                 error(f'Failed to rename variable to "{func_data[argidx].name}"')
-                return HandleStatus.FAILED
+                return HandleStatus.HANDLED
 
         # not working
         # vdui.refresh_ctext()

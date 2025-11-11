@@ -69,7 +69,7 @@ class HexraysLabelEditHook(ida_hexrays.Hexrays_Hooks):
         if func_ea == idaapi.BADADDR:
             if fcall.x.op != idaapi.cot_var:
                 error('Unexpected function call')
-                return HandleStatus.FAILED
+                return HandleStatus.NOT_HANDLED
 
             tif = fcall.x.v.getv().tif
         else:
@@ -129,20 +129,20 @@ class HexraysLabelEditHook(ida_hexrays.Hexrays_Hooks):
 
             newtif = ida_typeinf.tinfo_t()
             if not parse_type(newtif, newtype):
-                return HandleStatus.FAILED
+                return HandleStatus.HANDLED
 
             func_data[argidx].type = newtif
 
         # Recreate the function type with the modified argument names
         if not tif.create_func(func_data):
             error('Failed to create the modified function type.')
-            return HandleStatus.FAILED
+            return HandleStatus.HANDLED
 
         # Apply the modified type back to the function
         # NOTE: function pointer in IAT will be directly set type as a function
         if not ida_typeinf.apply_tinfo(func_ea, tif, idaapi.TINFO_DEFINITE):
             error(f'Failed to apply the modified function type to {hex(func_ea)}.')
-            return HandleStatus.FAILED
+            return HandleStatus.HANDLED
 
         vdui.refresh_view(False)
         return HandleStatus.HANDLED

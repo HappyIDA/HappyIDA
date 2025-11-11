@@ -30,7 +30,7 @@ class HexraysLabelTypeSyncHook(ida_hexrays.Hexrays_Hooks):
         sel_name, success = ida_kernwin.get_highlight(vdui.ct)
         if not success:
             error('Failed to retrieve highlighted variable name')
-            return HandleStatus.FAILED
+            return HandleStatus.NOT_HANDLED
 
         # * will be dropped, so at least check the prefix
         if not str(e.type).startswith(sel_name):
@@ -63,7 +63,7 @@ class HexraysLabelTypeSyncHook(ida_hexrays.Hexrays_Hooks):
             udm = self.get_member(tif, e.x.x.x.m)
             if not udm:
                 error(f'Unable to get member of offset {e.x.x.x.m}')
-                return HandleStatus.FAILED
+                return HandleStatus.HANDLED
 
             arr_idx = e.x.x.y.n._value
             from_offset = to_byte(udm.offset) + udm.type.get_ptrarr_objsize() * arr_idx
@@ -77,6 +77,7 @@ class HexraysLabelTypeSyncHook(ida_hexrays.Hexrays_Hooks):
             arr_tif.create_array(arr_tif, array_size)
 
             # if it's a user defined field, delete it (will make it a gapXXXXX char array)
+            # NOTE: always revert after this
             idc.del_struc_member(tif.get_tid(), to_byte(udm.offset))
 
             # if it's gapXXXXX, add member will fail due to duplicate name
