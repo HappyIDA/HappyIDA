@@ -46,28 +46,39 @@ static void type_handoff_demo() {
 }
 
 // ---------------------------------------------------------------------------
-// Vtable navigation: double-click method name to jump to the implementation
+// Vtable navigation:
+// - Double-click a vtable entry (e.g., ops->start) to jump to the implementation.
+// - When there is no exact name match, HappyIDA shows a partial-match candidate list.
+//   This helps when base/derived classes share member names but differ by prefixes/suffixes.
 // ---------------------------------------------------------------------------
 struct DeviceOps {
     void (*start)(Packet *);
-    int  (*read)(Packet *, int);
+    int  (*process)(Packet *, int);
     void (*stop)(Packet *);
 };
 
-static void dev_start(Packet *pkt)  { printf("[start] %u\n", pkt->opcode); }
-static int  dev_read(Packet *pkt, int slot) {
-    printf("[read] slot=%d len=%u\n", slot, pkt->length);
+static void base_start(Packet *pkt)   { printf("[base_start] %u\n", pkt->opcode); }
+static int  process(Packet *pkt, int slot) {
+    printf("[process] slot=%d len=%u\n", slot, pkt->length);
     return pkt->payload[slot % sizeof(pkt->payload)];
 }
-static void dev_stop(Packet *pkt)   { printf("[stop] %u\n", pkt->opcode); }
+static void base_stop(Packet *pkt)    { printf("[base_stop] %u\n", pkt->opcode); }
 
-static DeviceOps g_ops = { dev_start, dev_read, dev_stop };
+static void pro_start(Packet *pkt)    { printf("[pro_start] %u\n", pkt->opcode); }
+static int  pro_process(Packet *pkt, int slot) {
+    printf("[pro_process] slot=%d len=%u\n", slot, pkt->length);
+    return pkt->payload[(slot + 1) % sizeof(pkt->payload)];
+}
+static void pro_stop(Packet *pkt)     { printf("[pro_stop] %u\n", pkt->opcode); }
+
+static DeviceOps g_base_ops = { base_start, process, base_stop };
+static DeviceOps g_pro_ops  = { pro_start,  pro_process,  pro_stop  };
 
 static void drive_device(DeviceOps *ops, Packet *pkt) {
-    ops->start(pkt);
-    int val = ops->read(pkt, 3);
+    ops->start(pkt);                     // exact matches do not exist; chooser offers base_start/pro_start
+    int val = ops->process(pkt, 3);      // chooser shows process/pro_process when double-clicked
     printf("[drive_device] sample=%d\n", val);
-    ops->stop(pkt);
+    ops->stop(pkt);                      // chooser shows base_stop/pro_stop
 }
 
 // ---------------------------------------------------------------------------
@@ -112,8 +123,9 @@ int main() {
     // Clipboard helpers: copy/paste name and type on pkt/payload.
     type_handoff_demo();
 
-    // Vtable navigation: double-click start/read/stop in pseudocode.
-    drive_device(&g_ops, pkt);
+    // Vtable navigation: double-click start/process/stop in pseudocode to jump or pick from candidates.
+    DeviceOps *ops = (pkt->opcode & 1) ? &g_pro_ops : &g_base_ops;
+    drive_device(ops, pkt);
 
     // SEH coloring/rebuild demo.
     int probe = seh_probe(pkt->length == 0 ? 0 : 1);

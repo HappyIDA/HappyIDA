@@ -60,7 +60,6 @@ HappyIDA/
 | Copy / Paste Type | happyida:hx_copytype / happyida:hx_pastetype. |
 | Edit Local Type | Press E on a highlighted variable to open IDA's type editor for that local. |
 | Edit Parameter | Press Y in a function call when the cursor is on an argument. Choose Rename or Set Type. |
-| Assign Clipboard Type | Highlight an expression, press Ctrl+Shift+C → Paste type. |
 | Navigate Functions | Double-click on a vtable entry or member pointer in pseudocode. |
 | Rust String Pretty Print | Open a Rust binary – strings automatically colorized in Hex-Rays. |
 | SEH Highlight | SEH blocks are visually highlighted; right-click → Rebuild SEH. |
@@ -139,6 +138,10 @@ You can toggle SEH highlighting from the pseudocode context menu (right-click).
 Highlight color is set in `ida_happy/modules/seh/highlight.py` via `bgcolor`, tweak it if you want a different tint.
 
 ### Navigate Functions 
+
+Double-click a vtable entry or member pointer in pseudocode to jump to the target function. If there is no exact match, HappyIDA shows a partial-match candidate list. This helps with C++ polymorphism when overrides share a base member name but add prefixes or suffixes.
+
+![Function Nav](images/FunctionNav.gif)
 
 ## License
 
