@@ -14,7 +14,8 @@ from .modules import (
     HexraysMarkSEHHook,
     HexraysRebuildSEHHook
 )
-from .miscutils import info, error, parse_type
+from .miscutils import info, error
+from .manager import HookManager, HookType
 
 from PyQt5.QtWidgets import QApplication
 
@@ -411,6 +412,8 @@ class HappyIDAPlugin(idaapi.plugin_t):
                 idaapi.register_action(action)
                 self.registered_hx_actions.append(action.name)
 
+            self.hook_manager = HookManager()
+
             # Register hexrays hooks
             self.hx_hooks = [
                 HexraysParamLabelHook(),
@@ -423,8 +426,14 @@ class HappyIDAPlugin(idaapi.plugin_t):
                 HexraysRebuildSEHHook()
             ]
             for hook in self.hx_hooks:
-                hook.hook()
+                self.hook_manager.register_hook(
+                    name=hook.__class__.__name__,
+                    description=hook.__class__.__doc__,
+                    hook_type=HookType.HEXRAYS_EVENT,
+                    hook_instance=hook
+                )
 
+            self.hook_manager.force_refresh_menu()
             self.hexrays_inited = True
 
         info('Plugin initialized')
@@ -445,9 +454,9 @@ class HappyIDAPlugin(idaapi.plugin_t):
 
             # Unregister hexrays hook
             for hook in self.hx_hooks:
-                hook.unhook()
+                self.hook_manager.unregister_hook(hook.__class__.__name__)
 
-            # TODO: what is this?
+            self.hook_manager.cleanup()
             idaapi.term_hexrays_plugin()
 
         info('Plugin terminated')
