@@ -3,10 +3,32 @@
   "plugin": {
     "name": "HappyIDA",
     "entryPoint": "main.py",
-    "categories": ["api-scripting-and-automation"],
-    "logoPath": "logo.png",
-    "idaVersions": ">=7.4",
+    "idaVersions": ">=9.0",
+    "categories": ["decompilation"],
+    "keywords": [
+      "decompiler",
+      "parameter label",
+      "SEH"
+    ],
+    "urls": {
+      "repository": "https://github.com/HappyIDA/HappyIDA"
+    },
+    "authors": [
+      {
+        "name": "NiNi",
+        "email": "nini@undefined.zip"
+      },
+      {
+        "name": "HexRabbit",
+        "email": "h3xrabbit@gmail.com"
+      },
+      {
+        "name": "Angelboy",
+        "email": "scwuaptx@gmail.com"
+      }
+    ],
     "description" : "Make your IDA Happy!",
-    "version": "0.0.9"
+    "license": "GPL-3.0",
+    "version": "1.0.0"
   }
 }
