@@ -4,7 +4,7 @@ import idc
 import ida_hexrays
 import ida_typeinf
 import ida_kernwin
-from ida_settings import get_current_plugin_setting
+from ida_settings import PluginSettings
 from .modules import (
     HexraysParamLabelHook,
     HexraysLabelEditHook,
@@ -420,16 +420,17 @@ class HappyIDAPlugin(idaapi.plugin_t):
                 self.registered_hx_actions.append(action.name)
 
             # Register hexrays hooks (gated by settings, default enabled)
-            enable_param_label = get_current_plugin_setting("enable_param_label")
+            settings = PluginSettings("HappyIDA")
+            enable_param_label = settings.get_setting("enable_param_label")
             hook_configs = [
                 (HexraysParamLabelHook, enable_param_label),
-                (HexraysLabelEditHook, enable_param_label and get_current_plugin_setting("enable_param_edit")),
-                (HexraysLabelNameSyncHook, enable_param_label and get_current_plugin_setting("enable_param_sync_name")),
-                (HexraysLabelTypeSyncHook, enable_param_label and get_current_plugin_setting("enable_param_sync_type")),
-                (HexraysFuncNavigateHook, get_current_plugin_setting("enable_func_navigate")),
-                (HexraysRustStringHook, get_current_plugin_setting("enable_rust_string")),
-                (HexraysMarkSEHHook, get_current_plugin_setting("enable_seh_highlight")),
-                (HexraysRebuildSEHHook, get_current_plugin_setting("enable_seh_rebuild")),
+                (HexraysLabelEditHook, enable_param_label and settings.get_setting("enable_param_edit")),
+                (HexraysLabelNameSyncHook, enable_param_label and settings.get_setting("enable_param_sync_name")),
+                (HexraysLabelTypeSyncHook, enable_param_label and settings.get_setting("enable_param_sync_type")),
+                (HexraysFuncNavigateHook, settings.get_setting("enable_func_navigate")),
+                (HexraysRustStringHook, settings.get_setting("enable_rust_string")),
+                (HexraysMarkSEHHook, settings.get_setting("enable_seh_highlight")),
+                (HexraysRebuildSEHHook, settings.get_setting("enable_seh_rebuild")),
             ]
             
             self.hx_hooks = []
