@@ -22,6 +22,8 @@ try:
 except ImportError:
     from PyQt5.QtWidgets import QApplication
 
+ACTION_COPYEA = "happyida:copyea"
+ACTION_HX_COPYEA = "happyida:hx_copyea"
 ACTION_HX_COPYNAME = "happyida:hx_copyname"
 ACTION_HX_PASTENAME = "happyida:hx_pastename"
 ACTION_HX_COPYTYPE = "happyida:hx_copytype"
@@ -33,6 +35,40 @@ def copy_to_clip(data):
 
 def get_clip_text():
     return QApplication.clipboard().text()
+
+class CopyEAAction(idaapi.action_handler_t):
+    def activate(self, ctx):
+        return self.copy_ea(ctx)
+
+    def copy_ea(self, ctx):
+        ea = idaapi.get_screen_ea()
+        if ea != idaapi.BADADDR:
+            copy_to_clip(f"0x{ea:x}")
+            info(f"Address 0x{ea:x} has been copied to clipboard")
+            return 1
+
+    def update(self, ctx):
+        if ctx.widget_type in (ida_kernwin.BWN_DISASM, ida_kernwin.BWN_HEXVIEW):
+            return idaapi.AST_ENABLE_FOR_WIDGET
+
+        return idaapi.AST_DISABLE_FOR_WIDGET
+
+class HexraysCopyEAAction(idaapi.action_handler_t):
+    def activate(self, ctx):
+        return self.copy_ea(ctx)
+
+    def copy_ea(self, ctx):
+        ea = idaapi.get_screen_ea()
+        if ea != idaapi.BADADDR:
+            copy_to_clip(f"0x{ea:x}")
+            info(f"Address 0x{ea:x} has been copied to clipboard")
+            return 1
+
+    def update(self, ctx):
+        if ctx.widget_type == ida_kernwin.BWN_PSEUDOCODE:
+            return idaapi.AST_ENABLE_FOR_WIDGET
+
+        return idaapi.AST_DISABLE_FOR_WIDGET
 
 class HexraysCopyNameAction(idaapi.action_handler_t):
     def activate(self, ctx):
@@ -398,6 +434,13 @@ class HappyIDAPlugin(idaapi.plugin_t):
         self.registered_actions = []
         self.registered_hx_actions = []
 
+        actions = [
+            idaapi.action_desc_t(ACTION_COPYEA, "Copy address", CopyEAAction(), "W"),
+        ]
+        for action in actions:
+            idaapi.register_action(action)
+            self.registered_actions.append(action.name)
+
         # Add hexrays ui callback
         if idaapi.init_hexrays_plugin():
             addon = idaapi.addon_info_t()
@@ -414,6 +457,7 @@ class HappyIDAPlugin(idaapi.plugin_t):
                 idaapi.action_desc_t(ACTION_HX_COPYTYPE, "Copy type", HexraysCopyTypeAction(), "Ctrl-Alt-C"),
                 idaapi.action_desc_t(ACTION_HX_PASTETYPE, "Paste type", HexraysPasteTypeAction(), "Ctrl-Alt-V"),
                 idaapi.action_desc_t(ACTION_HX_EDITTYPE, "Edit type", HexraysEditTypeAction(), "E"),
+                idaapi.action_desc_t(ACTION_HX_COPYEA, "Copy address", HexraysCopyEAAction(), "W"),
             ]
             for action in hx_actions:
                 idaapi.register_action(action)
