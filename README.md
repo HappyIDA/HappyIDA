@@ -8,6 +8,7 @@ HappyIDA is an IDAPython plugin that adds a set of convenience utilities to the 
 - **SEH try/catch block support** – visual highlights and reconstruct try...catch clause in pseudocode view.
 - **Function navigation** – double‑click on a vtable name to jump or search for the matching function.
 - **Rust string prettifier** – automatically pretty‑prints Rust strings in decompiled pseudocode.
+- **Copy Address** – quickly copy the address of the current line or item to the clipboard.
 
 ## Installation
 
@@ -99,6 +100,7 @@ HappyIDA/
 |---------|------------|
 | Copy / Paste Name | C / V for copy and paste name. |
 | Copy / Paste Type | Ctrl-Alt-C / Ctrl-Alt-V for copy and paste type. |
+| Copy Address | W to copy current address. |
 | Edit Local Type | Press E on a highlighted variable to open IDA's type editor for that local. |
 | Edit/Sync Parameter | Press N (rename) or Y (set type) on an argument in a call; double-click labels/args to sync names, or a cast to sync types. |
 | Navigate Functions | Double‑click on a vtable entry or member pointer in pseudocode. |
@@ -146,6 +148,10 @@ It shines when a debug string exposes a function/variable name you want to reuse
 Works like Copy / Paste Name, but for types. Press `Ctrl+Alt+C` to copy the type of the highlighted function, variable, or member and store it as text in your system clipboard. Press `Ctrl+Alt+V` to apply that type to the item under your cursor. Since it re-parses the string from the clipboard, you can also copy any text that can be parsed as a type from Hex-Rays output and paste it back.
 
 ![Paste Type](images/PasteType.gif)
+
+### Copy Address
+
+Press `W` to copy the address of the current line or item to the clipboard. This works in Disassembly, Hexdump, and Pseudocode views.
 
 ### Edit Local Type
 
