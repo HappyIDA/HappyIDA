@@ -31,7 +31,12 @@ class CopyEAAction(idaapi.action_handler_t):
             return 1
 
     def update(self, ctx):
-        if ctx.widget_type in (ida_kernwin.BWN_DISASM, ida_kernwin.BWN_HEXVIEW):
+        try:
+            hexview_type = ida_kernwin.BWN_HEXVIEW
+        except AttributeError:
+            hexview_type = ida_kernwin.BWN_DUMP
+
+        if ctx.widget_type in (ida_kernwin.BWN_DISASM, hexview_type):
             return idaapi.AST_ENABLE_FOR_WIDGET
 
         return idaapi.AST_DISABLE_FOR_WIDGET
