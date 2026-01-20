@@ -29,6 +29,7 @@ ACTION_HX_PASTENAME = "happyida:hx_pastename"
 ACTION_HX_COPYTYPE = "happyida:hx_copytype"
 ACTION_HX_PASTETYPE = "happyida:hx_pastetype"
 ACTION_HX_EDITTYPE = "happyida:hx_edittype"
+ACTION_HX_TOGGLE_LABEL = "happyida:hx_toggle_label"
 
 def copy_to_clip(data):
     QApplication.clipboard().setText(data)
@@ -421,6 +422,21 @@ class HexraysEditTypeAction(idaapi.action_handler_t):
 
         return idaapi.AST_DISABLE_FOR_WIDGET
 
+class HexraysToggleParamLabelAction(idaapi.action_handler_t):
+    def activate(self, ctx):
+        HexraysParamLabelHook.active = not HexraysParamLabelHook.active
+        vu = ida_hexrays.get_widget_vdui(ctx.widget)
+        if vu:
+            vu.refresh_ctext()
+        info("Toggle parameter labels: {}".format("Enable" if HexraysParamLabelHook.active else "Disable"))
+        return 1
+
+    def update(self, ctx):
+        if ctx.widget_type == ida_kernwin.BWN_PSEUDOCODE:
+            return idaapi.AST_ENABLE_FOR_WIDGET
+
+        return idaapi.AST_DISABLE_FOR_WIDGET
+
 class HappyIDAPlugin(idaapi.plugin_t):
     flags = idaapi.PLUGIN_HIDE
     comment = "HappyIDA"
@@ -458,6 +474,7 @@ class HappyIDAPlugin(idaapi.plugin_t):
                 idaapi.action_desc_t(ACTION_HX_PASTETYPE, "Paste type", HexraysPasteTypeAction(), "Ctrl-Alt-V"),
                 idaapi.action_desc_t(ACTION_HX_EDITTYPE, "Edit type", HexraysEditTypeAction(), "E"),
                 idaapi.action_desc_t(ACTION_HX_COPYEA, "Copy address", HexraysCopyEAAction(), "W"),
+                idaapi.action_desc_t(ACTION_HX_TOGGLE_LABEL, "Toggle parameter label", HexraysToggleParamLabelAction(), "`"),
             ]
             for action in hx_actions:
                 idaapi.register_action(action)
