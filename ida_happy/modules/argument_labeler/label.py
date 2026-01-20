@@ -2,11 +2,33 @@ import idaapi
 import ida_hexrays
 import ida_lines
 import ida_typeinf
-from ida_happy.miscutils import tag_text
+import ida_kernwin
+from ida_happy.miscutils import tag_text, info
+
+class HexraysToggleParamLabelAction(idaapi.action_handler_t):
+    ACTION_NAME = "happyida:hx_toggle_param_label"
+
+    def activate(self, ctx):
+        HexraysParamLabelHook.active = not HexraysParamLabelHook.active
+        vu = ida_hexrays.get_widget_vdui(ctx.widget)
+        if vu:
+            vu.refresh_ctext()
+        info("Toggle parameter labels: {}".format("Enable" if HexraysParamLabelHook.active else "Disable"))
+        return 1
+
+    def update(self, ctx):
+        if ctx.widget_type == ida_kernwin.BWN_PSEUDOCODE:
+            return idaapi.AST_ENABLE_FOR_WIDGET
+
+        return idaapi.AST_DISABLE_FOR_WIDGET
 
 class HexraysParamLabelHook(ida_hexrays.Hexrays_Hooks):
     """make decompiler display swift-like parameter label"""
+    active = True
+
     def func_printed(self, cfunc):
+        if not self.active:
+            return 0
         self.add_parameter_labels(cfunc)
         return 0
 
