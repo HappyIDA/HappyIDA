@@ -97,7 +97,8 @@ class HexraysRebuildSEHHook(ida_hexrays.Hexrays_Hooks):
 
             # NOTE: currently support only one catch block
             # also, it looks like msvc only accept one __except block?
-            self.seh_list.append((try_start, try_end, eh_start_list[0]))
+            if len(eh_start_list) != 0:
+                self.seh_list.append((try_start, try_end, eh_start_list[0]))
 
     def insert_catch_block(self, mba: ida_hexrays.mba_t):
         func = idaapi.get_func(mba.entry_ea)
