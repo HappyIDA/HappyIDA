@@ -37,6 +37,8 @@ class HexraysFuncNavigateHook(ida_hexrays.Hexrays_Hooks):
             expr = idaapi.tag_remove(vdui.item.e.print1(None))
             if "->" in expr:
                 name = expr.split("->")[-1].strip()
+                if "." in name:
+                    name = name.split(".")[-1].strip()
                 addr = idc.get_name_ea_simple(name)
                 if addr != idaapi.BADADDR:
                     idc.jumpto(addr)
