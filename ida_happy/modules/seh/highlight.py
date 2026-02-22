@@ -80,10 +80,11 @@ class HexraysMarkSEHHook(ida_hexrays.Hexrays_Hooks):
 
             def OnSelectLine(self, n):
                 selected_address = self.data[n]
-
-                widget = ida_kernwin.find_widget("IDA View-A")
-                ida_kernwin.activate_widget(widget, True)
-                ida_kernwin.jumpto(selected_address)
+                def _jump():
+                    widget = ida_kernwin.find_widget("IDA View-A")
+                    ida_kernwin.activate_widget(widget, True)
+                    ida_kernwin.jumpto(selected_address)
+                ida_kernwin.execute_ui_requests((_jump,))
 
         self.enable = self.is_pe_binary()
         self.bgcolor = int(get_current_plugin_setting("seh_bgcolor"), 16)
