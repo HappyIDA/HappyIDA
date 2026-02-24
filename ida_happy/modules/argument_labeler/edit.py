@@ -105,6 +105,8 @@ class HexraysLabelEditHook(ida_hexrays.Hexrays_Hooks):
 
         # drop any non-argument named variables
         # A: ...[B]...
+        if argidx >= func_data.size():
+            return HandleStatus.NOT_HANDLED
         if func_data[argidx].name != sel_name and \
            not (func_data[argidx].name == '' and sel_name == 'unk'):
             return HandleStatus.NOT_HANDLED
