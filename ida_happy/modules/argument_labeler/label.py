@@ -33,41 +33,48 @@ class HexraysParamLabelHook(ida_hexrays.Hexrays_Hooks):
         return 0
 
     def add_parameter_labels(self, cf):
-        ci = ida_hexrays.ctree_item_t()
         ccode = cf.get_pseudocode()
-        target = {}
-        for line_idx in range(cf.hdrlines, len(ccode)):
+
+        line_calls = {}
+        for item in cf.treeitems:
+            if not item.is_expr() or item.op != ida_hexrays.cot_call:
+                continue
+            _, y = cf.find_item_coords(item)
+            if y is None or y < cf.hdrlines:
+                continue
+            if y not in line_calls:
+                line_calls[y] = []
+            line_calls[y].append(item.cexpr)
+
+        for line_idx, calls in line_calls.items():
             sl = ccode[line_idx]
-            for char_idx in range(len(sl.line)):
-                if cf.get_line_item(sl.line, char_idx, True, None, ci, None):
-                    if ci.it and ci.it.is_expr() and ci.e.op == ida_hexrays.cot_call:
-                        if ci.e.x.op == ida_hexrays.cot_helper:
-                            #TODO: build known helper dictionary
-                            pass
-                        else:
-                            args = self.get_func_params(ci.e)
-                            if not args:
-                                continue
+            target = {}
 
-                            for a, arg in zip(ci.e.a, args):
-                                name = arg.name
-                                ty = arg.type
-                                # filter same name cases
-                                # TODO: add support to hide tag if A: B->A ? (should filter A: [*&]B->A cases / or not? no sense to do that actually...)
-                                if a.dstr() == name:
-                                    continue
+            for call in calls:
+                if call.x.op == ida_hexrays.cot_helper:
+                    #TODO: build known helper dictionary
+                    continue
+                args = self.get_func_params(call)
+                if not args:
+                    continue
+                for a, arg in zip(call.a, args):
+                    name = arg.name
+                    # filter same name cases
+                    # TODO: add support to hide tag if A: B->A ? (should filter A: [*&]B->A cases / or not? no sense to do that actually...)
+                    if a.dstr() == name:
+                        continue
+                    idx = a.index
+                    tag = a.print1(None)
+                    target[tag] = (idx, name)
 
-                                idx = a.index
-                                tag = a.print1(None)
-                                target[tag] = (idx, name)
-            for item in list(target.keys()):
-                if item in sl.line:
-                    (index, name) = target.pop(item)
-                    if name == '':
-                        name = "unk"
-                    label = ida_lines.COLSTR(name, ida_lines.SCOLOR_HIDNAME)
-                    tagged = tag_text(label, index)
-                    sl.line = sl.line.replace(item, tagged + ": " + item)
+            for item_str, (index, name) in target.items():
+                if item_str not in sl.line:
+                    continue
+                if name == '':
+                    name = "unk"
+                label = ida_lines.COLSTR(name, ida_lines.SCOLOR_HIDNAME)
+                tagged = tag_text(label, index)
+                sl.line = sl.line.replace(item_str, tagged + ": " + item_str)
 
     def get_func_params(self, fcall):
         func_ea = fcall.x.obj_ea
