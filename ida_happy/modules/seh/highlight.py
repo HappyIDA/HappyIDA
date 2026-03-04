@@ -46,13 +46,17 @@ class HexraysMarkSEHHook(ida_hexrays.Hexrays_Hooks):
                 ea = idc.get_screen_ea()
                 func = idaapi.get_func(ea)
                 tbks = ida_tryblks.tryblks_t()
-
                 r = ida_range.range_t(func.start_ea, func.end_ea)
                 ida_tryblks.get_tryblks(tbks, r)
-                seh_list = HexraysMarkSEHHook.get_seh(ea, tbks)
+
+                seh_info = HexraysMarkSEHHook.parse_seh_info(tbks)
+                seh_list = []
+                for ranges, handlers in seh_info:
+                    if any(s <= ea < e for s, e in ranges):
+                        seh_list.extend(handlers)
 
                 if len(seh_list) > 0:
-                    chooser = SEHListChooser("Handler Locations", seh_list)
+                    chooser = SEHListChooser("SEH Handler Locations", seh_list)
                     chooser.Show(True)
                 else:
                     info("The selected address 0x{:X} is not in a try-catch block.".format(ea))
@@ -70,7 +74,7 @@ class HexraysMarkSEHHook(ida_hexrays.Hexrays_Hooks):
                 return len(self.data)
 
             def OnGetLine(self, n):
-                return ["{:X}".format(self.data[n])]
+                return ["0x{:X}".format(self.data[n])]
 
             def OnRefresh(self, n):
                 return n
@@ -117,42 +121,36 @@ class HexraysMarkSEHHook(ida_hexrays.Hexrays_Hooks):
 
         func = idaapi.get_func(cfunc.entry_ea)
         tbks = ida_tryblks.tryblks_t()
-
         r = ida_range.range_t(func.start_ea, func.end_ea)
         ida_tryblks.get_tryblks(tbks, r)
 
-        self.apply_xray_filter(cfunc, tbks)
+        seh_info = self.parse_seh_info(tbks)
+        self.apply_seh_filter(cfunc, seh_info)
         return 0
 
-    def apply_xray_filter(self, cfunc, tbks):
-        pc = cfunc.get_pseudocode()
+    def apply_seh_filter(self, cfunc, seh_info):
+        if not seh_info:
+            return
 
-        ci = ida_hexrays.ctree_item_t()
-        for line_idx in range(cfunc.hdrlines, len(pc)):
-            sl = pc[line_idx]
-            for char_idx in range(len(sl.line)):
-                # colorize SEH try block
-                if cfunc.get_line_item(sl.line, char_idx, True, None, ci, None) \
-                   and ci.it != None \
-                   and len(self.get_seh(ci.it.ea, tbks)) > 0 \
-                   and ci.it.op != ida_hexrays.cot_num:
-                    sl.bgcolor = self.bgcolor
-                    break
+        pc = cfunc.get_pseudocode()
+        all_ranges = [(s, e) for ranges, handlers in seh_info if handlers for s, e in ranges]
+
+        def in_seh(ea):
+            return any(s <= ea < e for s, e in all_ranges)
+
+        for i in range(len(cfunc.treeitems)):
+            item = cfunc.treeitems[i]
+            if item.op != ida_hexrays.cot_num and in_seh(item.ea):
+                _, y = cfunc.find_item_coords(item)
+                if y >= cfunc.hdrlines:
+                    pc[y].bgcolor = self.bgcolor
 
     @staticmethod
-    def get_seh(ea, tbks):
-        except_handler = []
+    def parse_seh_info(tbks):
+        result = []
         for tryblock in tbks:
-            is_in_tryblock = False
-            for rge in tryblock:
-                if rge.contains(ea):
-                    is_in_tryblock = True
-                    break
-
-            if is_in_tryblock:
-                if not tryblock.is_cpp() and tryblock.is_seh():
-                    ehs = tryblock.seh()
-                    for eh in ehs:
-                        except_handler.append(eh.start_ea)
-
-        return except_handler
+            if not tryblock.is_cpp() and tryblock.is_seh():
+                ranges = [(rge.start_ea, rge.end_ea) for rge in tryblock]
+                handlers = [eh.start_ea for eh in tryblock.seh()]
+                result.append((ranges, handlers))
+        return result
