@@ -142,7 +142,7 @@ class HexraysMarkSEHHook(ida_hexrays.Hexrays_Hooks):
             item = cfunc.treeitems[i]
             if item.op != ida_hexrays.cot_num and in_seh(item.ea):
                 _, y = cfunc.find_item_coords(item)
-                if y >= cfunc.hdrlines:
+                if y is not None and y >= cfunc.hdrlines:
                     pc[y].bgcolor = self.bgcolor
 
     @staticmethod
