@@ -71,7 +71,7 @@ class HexraysLabelEditHook(ida_hexrays.Hexrays_Hooks):
                 error('Unexpected function call')
                 return HandleStatus.NOT_HANDLED
 
-            tif = fcall.x.v.getv().tif
+            tif = fcall.x.type
         else:
             # NOTE: when working with large IDBs,
             # we often can't get type information without decompiling functions first.

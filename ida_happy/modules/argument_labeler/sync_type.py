@@ -40,7 +40,7 @@ class HexraysLabelTypeSyncHook(ida_hexrays.Hexrays_Hooks):
         if (e.op == ida_hexrays.cot_cast and
             e.x and e.x.op == ida_hexrays.cot_var):
             func = idaapi.get_func(idaapi.get_screen_ea())
-            lvar = e.x.v.getv()
+            lvar = vdui.cfunc.lvars[e.x.v.idx]
 
             self.retype_pseudocode_var(func.start_ea, lvar.name, e.type)
             vdui.refresh_view(True)
@@ -58,7 +58,7 @@ class HexraysLabelTypeSyncHook(ida_hexrays.Hexrays_Hooks):
 
             to_byte = lambda n: n // 8
             cast_type = e.type.get_pointed_object()
-            lvar = e.x.x.x.x.v.getv()
+            lvar = vdui.cfunc.lvars[e.x.x.x.x.v.idx]
             tif = lvar.type().get_pointed_object()
             udm = self.get_member(tif, e.x.x.x.m)
             if not udm:
