@@ -48,7 +48,7 @@ class HexraysLabelNameSyncHook(ida_hexrays.Hexrays_Hooks):
                 error('Unexpected function call')
                 return HandleStatus.HANDLED
 
-            tif = fcall.x.v.getv().tif
+            tif = fcall.x.type
         else:
             # NOTE: when working with large IDBs,
             # we often can't get type information without decompiling functions first.
@@ -73,7 +73,7 @@ class HexraysLabelNameSyncHook(ida_hexrays.Hexrays_Hooks):
             error('Failed to retrieve function details.')
             return HandleStatus.HANDLED
 
-        lvar = item.e.v.getv()
+        lvar = vdui.cfunc.lvars[item.e.v.idx]
         sel_name, success = ida_kernwin.get_highlight(vdui.ct)
         if not success:
             error('Failed to retrieve highlighted variable name')
