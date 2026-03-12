@@ -84,7 +84,7 @@ class HexraysParamLabelHook(ida_hexrays.Hexrays_Hooks):
             if fcall.x.op != idaapi.cot_var:
                 return None
 
-            tif = fcall.x.type
+            tif = fcall.x.v.mba.vars[fcall.x.v.idx].tif
         else:
             tif = ida_typeinf.tinfo_t()
             if not idaapi.get_tinfo(tif, func_ea):
